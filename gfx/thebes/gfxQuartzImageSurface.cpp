@@ -16,6 +16,7 @@ gfxQuartzImageSurface::gfxQuartzImageSurface(gfxImageSurface *imageSurface)
     cairo_surface_t *surf = cairo_quartz_image_surface_create (imageSurface->CairoSurface());
     Init (surf);
     mSize = ComputeSize();
+    mImageSurface = imageSurface;
 }
 
 gfxQuartzImageSurface::gfxQuartzImageSurface(cairo_surface_t *csurf)
@@ -60,6 +61,11 @@ gfxQuartzImageSurface::GetAsImageSurface()
 {
     if (!mSurfaceValid)
         return nullptr;
+
+    if (mImageSurface) {
+        nsRefPtr<gfxImageSurface> surf = mImageSurface;
+        return surf.forget();
+    }
 
     cairo_surface_t *isurf = cairo_quartz_image_surface_get_image (CairoSurface());
     if (!isurf) {

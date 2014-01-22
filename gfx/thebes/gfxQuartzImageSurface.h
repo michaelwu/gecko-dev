@@ -7,9 +7,8 @@
 #define GFX_QUARTZIMAGESURFACE_H
 
 #include "gfxASurface.h"
+#include "gfxImageSurface.h"
 #include "nsSize.h"
-
-class gfxImageSurface;
 
 class gfxQuartzImageSurface : public gfxASurface {
 public:
@@ -18,7 +17,7 @@ public:
 
     virtual ~gfxQuartzImageSurface();
 
-    already_AddRefed<gfxImageSurface> GetAsImageSurface();
+    virtual already_AddRefed<gfxImageSurface> GetAsImageSurface();
     virtual int32_t KnownMemoryUsed();
     virtual const gfxIntSize GetSize() const { return gfxIntSize(mSize.width, mSize.height); }
 
@@ -27,6 +26,7 @@ protected:
 
 private:
     gfxIntSize ComputeSize();
+    nsRefPtr<gfxImageSurface> mImageSurface;
 };
 
 #endif /* GFX_QUARTZIMAGESURFACE_H */
