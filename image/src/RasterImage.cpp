@@ -1009,6 +1009,7 @@ RasterImage::GetImageContainer(LayerManager* aManager, ImageContainer **_retval)
   *_retval = mImageContainer;
   NS_ADDREF(*_retval);
   if (CanForciblyDiscardAndRedecode()) {
+    mImageContainer->SetSourceImageContainer(this);
     mImageContainer = nullptr;
   }
 

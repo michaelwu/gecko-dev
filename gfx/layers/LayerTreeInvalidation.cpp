@@ -347,7 +347,7 @@ struct ImageLayerProperties : public LayerPropertiesBase
       return result;
     }
 
-    if (mContainer != imageLayer->GetContainer() ||
+    if (!mContainer->HasSameSourceImage(imageLayer->GetContainer()) ||
         mFilter != imageLayer->GetFilter() ||
         mScaleToSize != imageLayer->GetScaleToSize() ||
         mScaleMode != imageLayer->GetScaleMode()) {

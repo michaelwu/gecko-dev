@@ -213,6 +213,19 @@ ImageContainer::SetCurrentImage(Image *aImage)
   SetCurrentImageInternal(aImage);
 }
 
+void
+ImageContainer::SetSourceImageContainer(imgIContainer *aSource)
+{
+  mSourceContainer = aSource;
+}
+
+bool
+ImageContainer::HasSameSourceImage(ImageContainer *aContainer)
+{
+  return this == aContainer ||
+         (mSourceContainer && mSourceContainer == aContainer->mSourceContainer);
+}
+
  void
 ImageContainer::ClearAllImages()
 {

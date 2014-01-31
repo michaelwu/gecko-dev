@@ -28,6 +28,7 @@
 #include "mozilla/Atomics.h"
 #include "nsThreadUtils.h"
 #include "mozilla/gfx/2D.h"
+#include "imgIContainer.h"
 
 #ifndef XPCOM_GLUE_AVOID_NSPR
 /**
@@ -416,6 +417,9 @@ public:
    */
   void SetCurrentImage(Image* aImage);
 
+  void SetSourceImageContainer(imgIContainer *aSource);
+  bool HasSameSourceImage(ImageContainer *aContainer);
+
   /**
    * Clear all images. Let ImageClient release all TextureClients.
    */
@@ -662,6 +666,8 @@ protected:
   }
 
   nsRefPtr<Image> mActiveImage;
+
+  nsCOMPtr<imgIContainer> mSourceContainer;
 
   // Number of contained images that have been painted at least once.  It's up
   // to the ImageContainer implementation to ensure accesses to this are
