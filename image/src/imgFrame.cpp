@@ -303,8 +303,33 @@ nsresult imgFrame::Optimize()
   }
 #endif
 
+#ifdef ANDROID
+  gfxImageFormat optFormat =
+    gfxPlatform::GetPlatform()->
+      OptimalFormatForContent(gfxASurface::ContentFromFormat(mFormat));
+
+  if (optFormat == gfxImageFormat::RGB16_565) {
+    RefPtr<VolatileBuffer> buf =
+      gfxLockedImageSurface::AllocateBuffer(mSize, optFormat);
+    if (!buf)
+      return NS_OK;
+
+    nsRefPtr<gfxLockedImageSurface> surf =
+      new gfxLockedImageSurface(buf, mSize, optFormat);
+
+    gfxContext ctx(surf);
+    ctx.SetOperator(gfxContext::OPERATOR_SOURCE);
+    ctx.SetSource(mImageSurface);
+    ctx.Paint();
+
+    mImageSurface = surf;
+    mVBuf = buf;
+    mFormat = optFormat;
+  }
+#else
   if (mOptSurface == nullptr)
     mOptSurface = gfxPlatform::GetPlatform()->OptimizeImage(mImageSurface, mFormat);
+#endif
 
   if (mOptSurface) {
     mVBuf = nullptr;
@@ -589,25 +614,37 @@ nsresult imgFrame::LockImageData()
       mImageSurface = new gfxLockedImageSurface(mVBuf, mSize, mFormat);
       if (!mImageSurface || mImageSurface->CairoStatus())
         return NS_ERROR_OUT_OF_MEMORY;
-    } else if (mOptSurface || mSinglePixel) {
+    }
+    if (mOptSurface || mSinglePixel || mFormat == gfxImageFormat::RGB16_565) {
+      gfxImageFormat format = mFormat;
+      if (mFormat == gfxImageFormat::RGB16_565)
+        format = gfxImageFormat::ARGB32;
+
       // Recover the pixels
-      mVBuf = gfxLockedImageSurface::AllocateBuffer(mSize, mFormat);
-      if (!mVBuf) {
+      RefPtr<VolatileBuffer> buf =
+        gfxLockedImageSurface::AllocateBuffer(mSize, format);
+      if (!buf) {
         return NS_ERROR_OUT_OF_MEMORY;
       }
 
-      mImageSurface = new gfxLockedImageSurface(mVBuf, mSize, mFormat);
-      if (!mImageSurface || mImageSurface->CairoStatus())
+      RefPtr<gfxLockedImageSurface> surf =
+        new gfxLockedImageSurface(buf, mSize, format);
+      if (!surf || surf->CairoStatus())
         return NS_ERROR_OUT_OF_MEMORY;
 
-      gfxContext context(mImageSurface);
+      gfxContext context(surf);
       context.SetOperator(gfxContext::OPERATOR_SOURCE);
       if (mSinglePixel)
         context.SetDeviceColor(mSinglePixelColor);
+      else if (mFormat == gfxImageFormat::RGB16_565)
+        context.SetSource(mImageSurface);
       else
         context.SetSource(mOptSurface);
       context.Paint();
 
+      mFormat = format;
+      mVBuf = buf;
+      mImageSurface = surf;
       mOptSurface = nullptr;
 #ifdef USE_WIN_SURFACE
       mWinSurface = nullptr;
