@@ -23,12 +23,7 @@ static bool gDisableOptimize = false;
 #include "mozilla/CheckedInt.h"
 
 #if defined(XP_WIN)
-
 #include "gfxWindowsPlatform.h"
-
-/* Whether to use the windows surface; only for desktop win32 */
-#define USE_WIN_SURFACE 1
-
 #endif
 
 using namespace mozilla;
@@ -70,28 +65,6 @@ static bool AllowedImageSize(int32_t aWidth, int32_t aHeight)
 // optimized platform-specific surfaces.
 static bool ShouldUseImageSurfaces()
 {
-#if defined(USE_WIN_SURFACE)
-  static const DWORD kGDIObjectsHighWaterMark = 7000;
-
-  if (gfxWindowsPlatform::GetPlatform()->GetRenderMode() ==
-      gfxWindowsPlatform::RENDER_DIRECT2D) {
-    return true;
-  }
-
-  // at 7000 GDI objects, stop allocating normal images to make sure
-  // we never hit the 10k hard limit.
-  // GetCurrentProcess() just returns (HANDLE)-1, it's inlined afaik
-  DWORD count = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
-  if (count == 0 ||
-      count > kGDIObjectsHighWaterMark)
-  {
-    // either something's broken (count == 0),
-    // or we hit our high water mark; disable
-    // image allocations for a bit.
-    return true;
-  }
-#endif
-
   return false;
 }
 
@@ -160,25 +133,8 @@ nsresult imgFrame::Init(int32_t aX, int32_t aY, int32_t aWidth, int32_t aHeight,
       NS_WARNING("moz_malloc for paletted image data should succeed");
     NS_ENSURE_TRUE(mPalettedImageData, NS_ERROR_OUT_OF_MEMORY);
   } else {
-    // For Windows, we must create the device surface first (if we're
-    // going to) so that the image surface can wrap it.  Can't be done
-    // the other way around.
-#ifdef USE_WIN_SURFACE
-    if (!ShouldUseImageSurfaces()) {
-      mWinSurface = new gfxWindowsSurface(gfxIntSize(mSize.width, mSize.height), mFormat);
-      if (mWinSurface && mWinSurface->CairoStatus() == 0) {
-        // no error
-        mImageSurface = mWinSurface->GetAsImageSurface();
-      } else {
-        mWinSurface = nullptr;
-      }
-    }
-#endif
-
-    // For other platforms, space for the image surface is first allocated in
-    // a volatile buffer and then wrapped by a gfxLockedImageSurface.
-    // This branch is also used on Windows if we're not using device surfaces
-    // or if we couldn't create one.
+    // Allocate space for the image surface in a volatile buffer
+    // and then wrap with a gfxLockedImageSurface.
     if (!mImageSurface) {
       mVBuf = gfxLockedImageSurface::AllocateBuffer(mSize, mFormat);
       if (!mVBuf) {
@@ -260,9 +216,6 @@ nsresult imgFrame::Optimize()
         mVBuf = nullptr;
         mImageSurface = nullptr;
         mOptSurface = nullptr;
-#ifdef USE_WIN_SURFACE
-        mWinSurface = nullptr;
-#endif
 #ifdef XP_MACOSX
         mQuartzSurface = nullptr;
 #endif
@@ -287,15 +240,6 @@ nsresult imgFrame::Optimize()
     return NS_OK;
 
   mOptSurface = nullptr;
-
-#ifdef USE_WIN_SURFACE
-  if (mWinSurface) {
-    if (!mFormatChanged) {
-      // just use the DIB if the format has not changed
-      mOptSurface = mWinSurface;
-    }
-  }
-#endif
 
 #ifdef XP_MACOSX
   if (mQuartzSurface) {
@@ -334,9 +278,6 @@ nsresult imgFrame::Optimize()
   if (mOptSurface) {
     mVBuf = nullptr;
     mImageSurface = nullptr;
-#ifdef USE_WIN_SURFACE
-    mWinSurface = nullptr;
-#endif
 #ifdef XP_MACOSX
     mQuartzSurface = nullptr;
 #endif
@@ -654,9 +595,6 @@ nsresult imgFrame::LockImageData()
       mVBuf = buf;
       mImageSurface = surf;
       mOptSurface = nullptr;
-#ifdef USE_WIN_SURFACE
-      mWinSurface = nullptr;
-#endif
 #ifdef XP_MACOSX
       mQuartzSurface = nullptr;
 #endif
@@ -667,11 +605,6 @@ nsresult imgFrame::LockImageData()
   // surface ready for that.
   if (mImageSurface)
     mImageSurface->Flush();
-
-#ifdef USE_WIN_SURFACE
-  if (mWinSurface)
-    mWinSurface->Flush();
-#endif
 
 #ifdef XP_MACOSX
   if (!mQuartzSurface && !ShouldUseImageSurfaces()) {
@@ -713,19 +646,9 @@ nsresult imgFrame::UnlockImageData()
   if (mImageSurface)
     mImageSurface->Flush();
 
-#ifdef USE_WIN_SURFACE
-  if (mWinSurface)
-    mWinSurface->Flush();
-#endif
-
   // Assume we've been written to.
   if (mImageSurface)
     mImageSurface->MarkDirty();
-
-#ifdef USE_WIN_SURFACE
-  if (mWinSurface)
-    mWinSurface->MarkDirty();
-#endif
 
 #ifdef XP_MACOSX
   // The quartz image surface (ab)uses the flush method to get the
@@ -756,18 +679,8 @@ void imgFrame::ApplyDirtToSurfaces()
     if (mImageSurface)
       mImageSurface->Flush();
 
-#ifdef USE_WIN_SURFACE
-    if (mWinSurface)
-      mWinSurface->Flush();
-#endif
-
     if (mImageSurface)
       mImageSurface->MarkDirty();
-
-#ifdef USE_WIN_SURFACE
-    if (mWinSurface)
-      mWinSurface->MarkDirty();
-#endif
 
 #ifdef XP_MACOSX
     // The quartz image surface (ab)uses the flush method to get the
@@ -877,11 +790,6 @@ imgFrame::SizeOfExcludingThisWithComputedFallbackIfHeap(gfxMemoryLocation aLocat
     n += n2;
   }
 
-#ifdef USE_WIN_SURFACE
-  if (mWinSurface && aLocation == mWinSurface->GetMemoryLocation()) {
-    n += mWinSurface->KnownMemoryUsed();
-  } else
-#endif
 #ifdef XP_MACOSX
   if (mQuartzSurface && aLocation == gfxMemoryLocation::IN_PROCESS_HEAP) {
     n += aMallocSizeOf(mQuartzSurface);
