@@ -1316,9 +1316,7 @@ nsDisplayImage::GetLayerState(nsDisplayListBuilder* aBuilder,
     }
   }
 
-  nsRefPtr<ImageContainer> container;
-  mImage->GetImageContainer(aManager, getter_AddRefs(container));
-  if (!container) {
+  if (NS_FAILED(mImage->GetImageContainer(aManager, nullptr))) {
     return LAYER_NONE;
   }
 

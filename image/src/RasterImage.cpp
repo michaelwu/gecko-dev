@@ -988,7 +988,8 @@ RasterImage::GetImageContainer(LayerManager* aManager, ImageContainer **_retval)
 {
   int32_t maxTextureSize = aManager->GetMaxTextureSize();
   if (mSize.width > maxTextureSize || mSize.height > maxTextureSize) {
-    *_retval = nullptr;
+    if (_retval)
+      *_retval = nullptr;
     return NS_OK;
   }
 
@@ -997,9 +998,19 @@ RasterImage::GetImageContainer(LayerManager* aManager, ImageContainer **_retval)
   }
 
   if (mImageContainer) {
-    *_retval = mImageContainer;
-    NS_ADDREF(*_retval);
+    if (_retval) {
+      *_retval = mImageContainer;
+      NS_ADDREF(*_retval);
+    }
     return NS_OK;
+  }
+
+  if (!_retval) {
+    if (!mDecoded)
+      return NS_ERROR_NOT_AVAILABLE;
+
+    nsRefPtr<gfxASurface> imageSurface = GetFrame(FRAME_CURRENT, FLAG_NONE);
+    return imageSurface ? NS_OK : NS_ERROR_NOT_AVAILABLE;
   }
 
   nsRefPtr<layers::Image> image = GetCurrentImage();
