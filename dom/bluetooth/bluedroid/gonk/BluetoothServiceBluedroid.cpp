@@ -625,15 +625,6 @@ bt_callbacks_t sBluetoothCallbacks =
 {
   sizeof(sBluetoothCallbacks),
   AdapterStateChangeCallback,
-  AdapterPropertiesCallback,
-  RemoteDevicePropertiesCallback,
-  DeviceFoundCallback,
-  DiscoveryStateChangedCallback,
-  PinRequestCallback,
-  SspRequestCallback,
-  BondStateChangedCallback,
-  AclStateChangedCallback,
-  CallbackThreadEvent
 };
 
 /**
