@@ -15,6 +15,8 @@
 #include <sys/cdefs.h>
 #include <linux/kernel.h>
 
+extern int getdtablesize(void);
+
 #define sysinfo(foo) -1
 
 #endif /* ANDROID_STUB_H */
