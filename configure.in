@@ -3398,9 +3398,23 @@ for file in $MALLOC_HEADERS; do
   fi
 done
 
-AC_CHECK_FUNCS(strndup posix_memalign memalign valloc)
+AC_CHECK_FUNCS(strndup posix_memalign memalign)
 
 AC_CHECK_FUNCS(malloc_usable_size)
+
+dnl In newer bionic headers, valloc is built but not defined,
+dnl so we check more carefully here.
+AC_CACHE_CHECK(for valloc,
+               ac_cv_func_valloc,
+               [AC_TRY_COMPILE([#include <stdlib.h>,
+                                #include <unistd.h>],
+                               [void *buf = valloc(3);],
+                               ac_cv_func_valloc=yes,
+                               ac_cv_func_valloc=no)])
+
+if test "$ac_cv_func_valloc" = yes; then
+  AC_DEFINE(HAVE_VALLOC)
+fi
 
 dnl See if compiler supports some gcc-style attributes
 
